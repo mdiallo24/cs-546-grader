@@ -5,19 +5,25 @@ import { deepStrictEqual } from 'assert';
 import { pathToFileURL } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import { FatalGraderError } from './Utils.js';
-import { HTTPRequest, HTTPResponse, Page,  } from 'puppeteer-core';
+import { HTTPRequest, HTTPResponse, Page } from 'puppeteer-core';
+
+const entryPath = (entry) => entry.parentPath ?? entry.path;
 
 /**
  * HTTP request verb
  * @typedef {'GET'|'POST'|'PATCH'|'PUT'|'DELETE'} Verb
  */
 
-export const stringify = (obj, spacing = undefined) => JSON.stringify(obj, (_, value) => {
-  if (value instanceof ObjectId)
-    return { oid: value.toString() };
-  return value;
-}, spacing);
-const pretty = data => stringify(data, 2);
+export const stringify = (obj, spacing = undefined) =>
+  JSON.stringify(
+    obj,
+    (_, value) => {
+      if (value instanceof ObjectId) return { oid: value.toString() };
+      return value;
+    },
+    spacing,
+  );
+const pretty = (data) => stringify(data, 2);
 const uid = (() => {
   let id = 0;
   return () => id++;
@@ -37,8 +43,8 @@ export default class Grader {
     this.checkPackage = assignmentConfig.checkPackage ?? true;
     this.hasDatabase = assignmentConfig.hasDatabase;
     this.printObjectIdMessage = assignmentConfig.printObjectIdMessage ?? true;
-    this.connectionString = assignmentConfig.connectionString
-      || 'mongodb://localhost:27017/';
+    this.connectionString =
+      assignmentConfig.connectionString || 'mongodb://localhost:27017/';
     this.packageJson = null;
     this.hadModules = false;
     this.directory = 'current_submission';
@@ -62,7 +68,9 @@ export default class Grader {
   deductPoints(points, reason, error) {
     this.score -= points;
     if (this.score < 0) this.score = 0;
-    this.comments.push(`-${points}; ${reason}${error ? '\n' + error.toString() : ''}`);
+    this.comments.push(
+      `-${points}; ${reason}${error ? '\n' + error.toString() : ''}`,
+    );
   }
 
   /**
@@ -77,7 +85,11 @@ export default class Grader {
     try {
       actual = await testCase();
     } catch (e) {
-      this.deductPoints(points, `${message}; Error thrown on valid input.`, e.toString());
+      this.deductPoints(
+        points,
+        `${message}; Error thrown on valid input.`,
+        e.toString(),
+      );
       return;
     }
 
@@ -88,34 +100,42 @@ export default class Grader {
         let newArr = [];
         for (let i = 0; i < arr.length; i++) {
           const item = arr[i];
-          if (ObjectId.isValid(item) && typeof item === 'object' && item._bsontype === 'ObjectId') {
+          if (
+            ObjectId.isValid(item) &&
+            typeof item === 'object' &&
+            item._bsontype === 'ObjectId'
+          ) {
             newArr.push(`[${i}]`);
           } else if (Array.isArray(item)) {
             let res = findAllObjectIdsInArray(item);
-            newArr.push(...res.map(subItem => `[${i}]${subItem}`));
+            newArr.push(...res.map((subItem) => `[${i}]${subItem}`));
           } else if (item instanceof Object) {
             let res = findAllObjectIdsInObj(item);
-            newArr.push(...res.map(subItem => `[${i}]${subItem}`));
+            newArr.push(...res.map((subItem) => `[${i}]${subItem}`));
           }
         }
         return newArr;
-      }
+      };
 
       const findAllObjectIdsInObj = (obj) => {
         let newArr = [];
         for (let key in obj) {
-          if (ObjectId.isValid(obj[key]) && typeof obj[key] === 'object' && obj[key]._bsontype === 'ObjectId') {
+          if (
+            ObjectId.isValid(obj[key]) &&
+            typeof obj[key] === 'object' &&
+            obj[key]._bsontype === 'ObjectId'
+          ) {
             newArr.push(`.${key}`);
           } else if (Array.isArray(obj[key])) {
             let res = findAllObjectIdsInArray(obj[key]);
-            newArr.push(...res.map(subItem => `.${key}${subItem}`));
+            newArr.push(...res.map((subItem) => `.${key}${subItem}`));
           } else if (obj[key] instanceof Object) {
             let res = findAllObjectIdsInObj(obj[key]);
-            newArr.push(...res.map(subItem => `.${key}${subItem}`));
+            newArr.push(...res.map((subItem) => `.${key}${subItem}`));
           }
         }
         return newArr;
-      }
+      };
 
       // Check if ObjectId's are passed in. Lab specs usually require ObjectId's to be stringified.
       // Since the stringification between "expected" and "result" is misleading, this gives a note
@@ -128,14 +148,17 @@ export default class Grader {
           keys = findAllObjectIdsInObj(actual);
         }
       }
-      keys = keys.map(key => key.replace(/^\./, ""));
+      keys = keys.map((key) => key.replace(/^\./, ''));
 
       const objIdErrMsg = keys.length
         ? ` ObjectId type found at the following key(s) instead of type string: "${keys.join('", "')}"`
-        : "";
+        : '';
 
-      this.deductPoints(points, `${message}; Unexpected results.${objIdErrMsg}`,
-        `Received: ${pretty(actual)}\nExpected: ${pretty(expectedValue)}`);
+      this.deductPoints(
+        points,
+        `${message}; Unexpected results.${objIdErrMsg}`,
+        `Received: ${pretty(actual)}\nExpected: ${pretty(expectedValue)}`,
+      );
     }
   }
 
@@ -151,7 +174,11 @@ export default class Grader {
     try {
       actual = await testCase();
     } catch (e) {
-      this.deductPoints(points, `${message}; Error thrown on valid input.`, e.toString());
+      this.deductPoints(
+        points,
+        `${message}; Error thrown on valid input.`,
+        e.toString(),
+      );
       return;
     }
 
@@ -161,9 +188,12 @@ export default class Grader {
         return;
       } catch {}
     }
-    this.deductPoints(points, `${message}; Unexpected results.`,
+    this.deductPoints(
+      points,
+      `${message}; Unexpected results.`,
       `Received: ${pretty(actual)}\nExpected one of the following:\n- ` +
-      expectedValues.map(pretty).join('\n- '));
+        expectedValues.map(pretty).join('\n- '),
+    );
   }
 
   /**
@@ -177,17 +207,29 @@ export default class Grader {
    * @param {Error} [expectedType] Optional specific error type
    * @param {number} [typePoints] Points to deduct for an incorrect error type
    */
-  async assertThrows(points, message, testCase, expectedMessage, messagePoints, expectedType, typePoints) {
+  async assertThrows(
+    points,
+    message,
+    testCase,
+    expectedMessage,
+    messagePoints,
+    expectedType,
+    typePoints,
+  ) {
     if (expectedMessage && typeof messagePoints !== 'number')
-      throw new TypeError('If expectedMessage is provided, messagePoints must be provided as well.');
+      throw new TypeError(
+        'If expectedMessage is provided, messagePoints must be provided as well.',
+      );
     if (expectedType && typeof typePoints !== 'number')
-      throw new TypeError('If expectedType is provided, typePoints must be provided as well.');
+      throw new TypeError(
+        'If expectedType is provided, typePoints must be provided as well.',
+      );
     try {
       const result = await testCase();
       this.deductPoints(
         points,
         `${message}; Expected an error to be thrown, got a result instead.`,
-        pretty(result)
+        pretty(result),
       );
     } catch (e) {
       if (!expectedMessage && !expectedType) return;
@@ -195,18 +237,23 @@ export default class Grader {
       if (expectedMessage) {
         const errorMessage = typeof e === 'string' ? e : e.message;
         if (errorMessage.trim() !== expectedMessage.trim()) {
-          this.deductPoints(messagePoints, `${message}; Encountered unexpected error message.`,
-            `- Expected: ${expectedMessage}\n- Received: ${errorMessage}`);
+          this.deductPoints(
+            messagePoints,
+            `${message}; Encountered unexpected error message.`,
+            `- Expected: ${expectedMessage}\n- Received: ${errorMessage}`,
+          );
           deducted = messagePoints;
         }
       }
       if (expectedType && !(e instanceof expectedType)) {
         // Prevent cumulative deductions from going above
         // the total test case points
-        if (typePoints + deducted > points)
-          typePoints -= points - deducted;
-        this.deductPoints(typePoints, `${message}; Encountered unexpected error type.`,
-          `- Expected: ${expectedType.name || (typeof expectedType)}\n- Received: ${e.name || (typeof e)}`);
+        if (typePoints + deducted > points) typePoints -= points - deducted;
+        this.deductPoints(
+          typePoints,
+          `${message}; Encountered unexpected error type.`,
+          `- Expected: ${expectedType.name || typeof expectedType}\n- Received: ${e.name || typeof e}`,
+        );
       }
     }
   }
@@ -222,14 +269,13 @@ export default class Grader {
     const options = { method: method };
     if (typeof body !== 'string') {
       options.headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       };
       body = pretty(body);
     }
-    if (method !== 'GET' && body)
-      options.body = body;
+    if (method !== 'GET' && body) options.body = body;
     try {
-      const res = await fetch(url, options)
+      const res = await fetch(url, options);
       return [res.status, await res.text()];
     } catch (e) {
       if (e instanceof TypeError)
@@ -243,7 +289,7 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
    * Asserts that a response is ok (status 200) and has the specified body.
    * @param {number} points Points the test case is worth
    * @param {string} url URL to request
-   * @param {Verb} method Request method to use 
+   * @param {Verb} method Request method to use
    * @param {*} body Request body (stringified automatically if needed)
    * @param {*} expectedValue Expected response body (can be any type)
    */
@@ -254,7 +300,7 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
       this.deductPoints(
         points,
         testCaseText,
-        `Route did not return an OK (200) status code.\nReceived: ${status}`
+        `Route did not return an OK (200) status code.\nReceived: ${status}`,
       );
       return;
     }
@@ -262,11 +308,11 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
     if (typeof expectedValue !== 'string') {
       try {
         actual = JSON.parse(actual);
-      } catch(e) {
+      } catch (e) {
         this.deductPoints(
           points,
           testCaseText,
-          `Invalid response body:\n${text}`
+          `Invalid response body:\n${text}`,
         );
         return;
       }
@@ -275,7 +321,7 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
       points,
       testCaseText,
       () => actual,
-      expectedValue
+      expectedValue,
     );
   }
 
@@ -285,30 +331,36 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
    * of it.
    * @param {number} points Points the test case is worth
    * @param {string} url URL to request
-   * @param {Verb} method Request method to use 
+   * @param {Verb} method Request method to use
    * @param {*} body Request body (stringified automatically if needed)
    * @param {*} expectedValue Expected response body (can be any type)
    * @return {Promise<string>} The value of the `_id` property
    */
-  async assertRequestDeepEqualsWithoutId(points, url, method, body, expectedValue) {
+  async assertRequestDeepEqualsWithoutId(
+    points,
+    url,
+    method,
+    body,
+    expectedValue,
+  ) {
     const testCaseText = `${method.toUpperCase()} ${url}`;
     const [status, text] = await this.request(url, method, body);
     if (status !== 200) {
       this.deductPoints(
         points,
         testCaseText,
-        `Route did not return an OK (200) status code.`
+        `Route did not return an OK (200) status code.`,
       );
       return;
     }
     let actual = text;
     try {
       actual = JSON.parse(actual);
-    } catch(e) {
+    } catch (e) {
       this.deductPoints(
         points,
         testCaseText,
-        `Invalid response body:\n${text}`
+        `Invalid response body:\n${text}`,
       );
       return;
     }
@@ -317,7 +369,7 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
       testCaseText,
       () => actual,
       expectedValue,
-      this.assertDeepEquals
+      this.assertDeepEquals,
     );
   }
 
@@ -328,7 +380,7 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
    * @param {string} message Message to print before error text.
    * @param {*} testCase Test case to post-process.
    * @param {*} expectedValue Expected value(s) to pass to the assertion
-   * @param {*} assertion 
+   * @param {*} assertion
    * @returns {Promise<string>} The _id field from `testCase()`
    */
   async assertWithoutId(points, message, testCase, expectedValue, assertion) {
@@ -341,15 +393,17 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
         const res = await testCase();
         if (res && typeof res === 'object') {
           _id = res._id;
-          if (typeof _id !== 'string'
-            || _id.length !== 24
-            || !(/[a-f0-9]{24}/).test(_id))
+          if (
+            typeof _id !== 'string' ||
+            _id.length !== 24 ||
+            !/[a-f0-9]{24}/.test(_id)
+          )
             throw "Invalid value provided for '_id'.";
           delete res._id;
         }
         return res;
       },
-      expectedValue
+      expectedValue,
     );
     return _id;
   }
@@ -358,7 +412,7 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
    * Asserts that a request response has a certain status code.
    * @param {number} points Points the test case is worth
    * @param {string} url URL to request
-   * @param {Verb} method Request method to use 
+   * @param {Verb} method Request method to use
    * @param {*} body Request body (stringified automatically if needed)
    * @param {number} expectedStatus Status code that response should have
    * @returns {Promise<void>}
@@ -368,9 +422,9 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
     if (status === expectedStatus) return;
     this.deductPoints(
       points,
-      `${method.toUpperCase()} ${url}`
-        + (body ? `\n${JSON.stringify(body, null, 2)}` : ''),
-      `Received status: ${status}\nExpected status: ${expectedStatus}`
+      `${method.toUpperCase()} ${url}` +
+        (body ? `\n${JSON.stringify(body, null, 2)}` : ''),
+      `Received status: ${status}\nExpected status: ${expectedStatus}`,
     );
   }
 
@@ -388,9 +442,9 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
       res = await fetch('https://validator.nu/?out=json', {
         method: 'POST',
         headers: {
-          'Content-Type': 'text/html; charset=utf-8'
+          'Content-Type': 'text/html; charset=utf-8',
         },
-        body: rawHTML
+        body: rawHTML,
       });
     } catch (e) {
       if (e instanceof TypeError)
@@ -398,15 +452,14 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
       throw e;
     }
     if (res.status !== 200) {
-      throw new Error(`"HTML Validator Error gave bad response: ${res.status} ${res.statusText}. Please re-run grader again later."`)
+      throw new Error(
+        `"HTML Validator Error gave bad response: ${res.status} ${res.statusText}. Please re-run grader again later."`,
+      );
     }
     const { messages } = await res.json();
     for (const message of messages) {
       if (message.type === 'error') {
-        this.deductPoints(
-          points,
-          `${pageName} has HTML validation errors.`
-        );
+        this.deductPoints(points, `${pageName} has HTML validation errors.`);
         break;
       }
     }
@@ -415,7 +468,7 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
   /**
    * Goes to a page with puppeteer with an interception handler.
    * Useful for posting data or any request that isn't a GET.
-   * @param {Page} page Puppeteer page 
+   * @param {Page} page Puppeteer page
    * @param {string} location Location to go to
    * @param {(req: HTTPRequest)=>any} handler Interception handler
    * @returns {Promise<HTTPResponse>}
@@ -433,7 +486,10 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
     });
     const res = await page.goto(location);
     if (error)
-      throw new Error('Unable to load page. Possible server crash. Problematic page: ' + location);
+      throw new Error(
+        'Unable to load page. Possible server crash. Problematic page: ' +
+          location,
+      );
     return res;
   }
 
@@ -458,11 +514,9 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
   async importJSON(relativePath) {
     try {
       return JSON.parse(
-        await fs.readFile(
-          this.buildAbsoluteFilePath(relativePath, false), {
-            encoding: 'utf8'
-          }
-        )
+        await fs.readFile(this.buildAbsoluteFilePath(relativePath, false), {
+          encoding: 'utf8',
+        }),
       );
     } catch (e) {
       if (e instanceof SyntaxError)
@@ -478,7 +532,9 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
    * @returns {Promise<*>}
    */
   async importFile(relativePath, oneTime) {
-    const file = await import(this.buildAbsoluteFilePath(relativePath, true, oneTime))
+    const file = await import(
+      this.buildAbsoluteFilePath(relativePath, true, oneTime)
+    );
     return file.default ? file.default : file;
   }
 
@@ -488,10 +544,12 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
   async start() {
     const cmd = this.startScript.split(' ');
     if (!cmd[0] || cmd[0] !== 'node')
-      throw new Error('Possibly unsafe start script encountered: ' + this.startScript);
+      throw new Error(
+        'Possibly unsafe start script encountered: ' + this.startScript,
+      );
     this.subprocess = await new Promise((resolve, reject) => {
       const subprocess = spawn(cmd[0], cmd.slice(1), {
-        cwd: this.directory
+        cwd: this.directory,
       });
       this.subprocessClosed = false;
       // Resolve eventually if we don't find what we want
@@ -505,36 +563,41 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
         }
       });
       // Track closure of subprocess
-      subprocess.on('close', () => this.subprocessClosed = true);
+      subprocess.on('close', () => (this.subprocessClosed = true));
     });
   }
-  
+
   /**
    * Called internally by the grading framework.
    */
   async checks() {
     const files = Object.fromEntries(
-      this.requiredFiles.map(file => [file, false])
+      this.requiredFiles.map((file) => [file, false]),
     );
     const entries = await fs.readdir(this.directory, {
       recursive: true,
-      withFileTypes: true
+      withFileTypes: true,
     });
     for (const entry of entries) {
-      if (!this.hadModules && entry.isDirectory() && entry.name == 'node_modules') {
+      const currentPath = entryPath(entry);
+      if (
+        !this.hadModules &&
+        entry.isDirectory() &&
+        entry.name == 'node_modules'
+      ) {
         this.hadModules = true;
         this.deductPoints(5, 'Included node_modules in submission.');
         continue;
       }
-      if (this.hadModules && entry.path.includes('node_modules')) continue;
+      if (this.hadModules && currentPath.includes('node_modules')) continue;
       if (entry.name.toLowerCase() === 'package.json') {
-        this.directory = entry.path;
+        this.directory = currentPath;
         this.packageJson = await this.importJSON('package.json');
         continue;
       }
       if (files[entry.name] !== undefined) {
         files[entry.name] = true;
-        if (!this.packageJson) this.directory = entry.path;
+        if (!this.packageJson) this.directory = currentPath;
       }
     }
     this.directory = path.resolve(this.directory);
@@ -566,25 +629,28 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
       let collectionsFile;
       try {
         collectionsFile = await fs.readFile('./config/mongoCollections.js', {
-          encoding: 'utf-8'
+          encoding: 'utf-8',
         });
       } catch {
-        throw new Error('Couldn\'t read collections configuration.');
+        throw new Error("Couldn't read collections configuration.");
       }
-      const matches = collectionsFile.matchAll(/^(?!.*(?:\/\/|\/\*)).*getCollectionFn\(['"`](.*?)['"`]\)/gm);
-      for (const [, collection] of matches)
-        foundCollections.push(collection);
+      const matches = collectionsFile.matchAll(
+        /^(?!.*(?:\/\/|\/\*)).*getCollectionFn\(['"`](.*?)['"`]\)/gm,
+      );
+      for (const [, collection] of matches) foundCollections.push(collection);
       const missingCollections = this.requiredCollections
-        .filter((col) => !foundCollections.includes(col)).join(', ');
+        .filter((col) => !foundCollections.includes(col))
+        .join(', ');
       const extraCollections = foundCollections
-        .filter((col) => !this.requiredCollections.includes(col)).join(', ');
+        .filter((col) => !this.requiredCollections.includes(col))
+        .join(', ');
       if (missingCollections || extraCollections) {
         throw new Error(`Collections error: unexpected and/or missing collections.
 - Missing collections: ${missingCollections || 'None'}
 - Extra/unexpected collections: ${extraCollections || 'None'}`);
       }
     }
-    this.assignmentConfig
+    this.assignmentConfig;
     if (this.packageJson && this.packageJson.dependencies)
       execSync('npm i', { cwd: this.directory });
   }
@@ -593,15 +659,17 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
    * Sets up the grader for database access
    */
   async setupDatabase() {
-    const settings = (await this.importFile('config/settings.js', true)).mongoConfig;
+    const settings = (await this.importFile('config/settings.js', true))
+      .mongoConfig;
     settings.serverUrl = this.connectionString;
     this.database = settings.database;
-    await fs.writeFile(this.buildAbsoluteFilePath('config/settings.js'),
-`export const mongoConfig = {
+    await fs.writeFile(
+      this.buildAbsoluteFilePath('config/settings.js'),
+      `export const mongoConfig = {
   serverUrl: "${settings.serverUrl}",
   database: "${settings.database}"
 }
-`
+`,
     );
     this.client = await MongoClient.connect(this.connectionString);
     this.db = this.client.db(this.database);
@@ -611,7 +679,9 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
    * Override this with assignment-specific implementation.
    */
   async testCases() {
-    throw new Error('Please implement testCases() with appropriate test cases for the assignment.');
+    throw new Error(
+      'Please implement testCases() with appropriate test cases for the assignment.',
+    );
   }
 
   /**
@@ -619,15 +689,13 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
    */
   async run() {
     await this.checks();
-    if (this.hasDatabase)
-      await this.setupDatabase();
-    if (this.runStartScript)
-      await this.start();
+    if (this.hasDatabase) await this.setupDatabase();
+    if (this.runStartScript) await this.start();
     await this.testCases();
     await this.cleanup();
     return {
       grade: this.score,
-      comments: this.comments.join('\n')
+      comments: this.comments.join('\n'),
     };
   }
 
@@ -639,18 +707,22 @@ Server either didn't start, is at an unexpected URL, or crashed during the previ
       await this.db.dropDatabase();
       await this.client.close(true);
       try {
-        const { closeConnection } = await this.importFile('config/mongoConnection.js');
+        const { closeConnection } = await this.importFile(
+          'config/mongoConnection.js',
+        );
         await closeConnection();
       } catch {}
     }
     if (this.subprocess && !this.subprocessClosed)
       if (!this.subprocess.kill())
-        throw new FatalGraderError('Failed to kill student submission process.');
+        throw new FatalGraderError(
+          'Failed to kill student submission process.',
+        );
     if (!this.hadModules) {
       await fs.rm(path.join(this.directory, 'node_modules'), {
         recursive: true,
-        force: true
+        force: true,
       });
     }
   }
-};
+}
